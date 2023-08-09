@@ -7,6 +7,9 @@
     cluster_name: 'poojit'
     nodegroup_name: 'private-nodes'
     kubernetes_version: '1.27'
+    instance_type: 't3.large'
+    security_groups: 'sg-08f57dd50a2699b45'
+    key_name: 'mykey'
 
   tasks:
     - name: Get the latest EKS-optimized AMI ID
@@ -19,13 +22,9 @@
       set_fact:
         new_ami_id: "{{ ami_description.stdout }}"
 
-    - name: Get the Auto Scaling Group name
-      set_fact:
-        asg_name: "eks-private-nodes-70c4d155-2565-d715-61e6-5aac6134020b"
-
     - name: Create a new launch configuration with the new AMI
       command: >
-        aws autoscaling create-launch-configuration --launch-configuration-name {{ asg_name }}-new --image-id {{ new_ami_id }} --instance-type t3.large
+        aws autoscaling create-launch-configuration --launch-configuration-name {{ nodegroup_name }}-new --image-id {{ new_ami_id }} --instance-type {{ instance_type }} --security-groups {{ security_groups }} --key-name {{ key_name }}
       register: new_launch_configuration
 
     - name: Update the Auto Scaling Group to use the new launch configuration
