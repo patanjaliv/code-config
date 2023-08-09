@@ -5,11 +5,23 @@
   vars:
     region: 'us-east-1'
     cluster_name: 'poojit'
+    nodegroup_name: 'private-nodes'
+    kubernetes_version: '1.27'
 
   tasks:
+    - name: Get the latest EKS-optimized AMI ID
+      command: >
+        aws ssm get-parameter --region {{ region }} --name /aws/service/eks/optimized-ami/{{ kubernetes_version }}/amazon-linux-2/recommended/image_id --query 'Parameter.Value' --output text
+      register: ami_description
+      changed_when: False
+
+    - name: Extract the AMI ID
+      set_fact:
+        new_ami_id: "{{ ami_description.stdout }}"
+
     - name: Get the current launch template version
       command: >
-        aws eks describe-nodegroup --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup
+        aws eks describe-nodegroup --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ nodegroup_name }}
       register: nodegroup_description
       changed_when: False
 
