@@ -24,6 +24,10 @@
       register: nodegroup_description
       changed_when: False
 
+    - name: Print nodegroup description
+      debug:
+        msg: "{{ nodegroup_description.stdout | from_json }}"
+
     - name: Extract launch template ID and version
       set_fact:
         launch_template_id: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.id }}"
