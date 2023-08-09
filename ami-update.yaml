@@ -3,41 +3,42 @@
   hosts: localhost
   gather_facts: False
   vars:
-    region: 'us-east-1' # Your AWS region
-    cluster_name: 'poojit' # Your EKS cluster name
-    kubernetes_version: '1.27' # Your Kubernetes version
+    region: 'us-east-1'
+    cluster_name: 'poojit'
+    kubernetes_version: '1.27'
 
   tasks:
     - name: Get the latest EKS-optimized AMI ID
-      command: >
-        aws ssm get-parameters --region {{ region }} --names /aws/service/eks/optimized-ami/{{ kubernetes_version }}/amazon-linux-2/recommended/image_id
-      register: ami_description
-      changed_when: False
+      amazon.aws.ec2_ami_info:
+        region: "{{ region }}"
+        filters:
+          name: "amazon-eks-node-{{ kubernetes_version }}-v*"
+          architecture: x86_64
+          virtualization-type: hvm
+          root-device-type: ebs
+      register: ami_info
 
     - name: Extract the AMI ID
       set_fact:
-        new_ami_id: "{{ (ami_description.stdout | from_json).Parameters[0].Value }}"
+        new_ami_id: "{{ ami_info.images[0].image_id }}"
 
-    - name: Get the current launch template version
-      command: >
-        aws eks describe-nodegroup --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup
-      register: nodegroup_description
-      changed_when: False
+    - name: Get details about the EKS cluster
+      community.aws.aws_eks_info:
+        name: "{{ cluster_name }}"
+        region: "{{ region }}"
+      register: eks_info
 
-    - name: Extract launch template ID and version
+    - name: Extract launch template ID
       set_fact:
-        launch_template_id: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.id }}"
-        launch_template_version: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.version }}"
+        launch_template_id: "{{ eks_info.clusters[0].node_groups[0].launch_template.id }}"
 
     - name: Create a new launch template version with the new AMI
-      command: >
-        aws ec2 create-launch-template-version --region {{ region }} --launch-template-id {{ launch_template_id }} --version-description "Updated AMI" --launch-template-data "{\"imageId\":\"{{ new_ami_id }}\"}"
+      amazon.aws.ec2_launch_template:
+        launch_template_name: "{{ launch_template_id }}"
+        image_id: "{{ new_ami_id }}"
+        region: "{{ region }}"
       register: new_launch_template_version
-
-    - name: Extract the new launch template version number
-      set_fact:
-        new_version_number: "{{ (new_launch_template_version.stdout | from_json).launchTemplateVersion.versionNumber }}"
 
     - name: Update the EKS node group to use the new launch template version
       command: >
-        aws eks update-nodegroup-version --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup --launch-template version={{ new_version_number }}
+        aws eks update-nodegroup-version --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup --launch-template version={{ new_launch_template_version.latest_version_number }}
