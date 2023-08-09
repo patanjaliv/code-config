@@ -9,7 +9,9 @@
     kubernetes_version: '1.27'
     instance_type: 't3.large'
     security_groups: 'sg-08f57dd50a2699b45'
-    key_name: 'mykey'
+    key_name: 'mykey'    
+    asg_name: 'eks-private-nodes-70c4d155-2565-d715-61e6-5aac6134020b' # Replace with your ASG name
+
 
   tasks:
     - name: Get the latest EKS-optimized AMI ID
