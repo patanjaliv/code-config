@@ -32,4 +32,4 @@
       command: >
         aws autoscaling update-auto-scaling-group --auto-scaling-group-name {{ asg_name }} --launch-configuration-name {{ asg_name }}-new
 
-    - name: Optionally, you can delete the old launch configuration here
+  #  - name: Optionally, you can delete the old launch configuration here
