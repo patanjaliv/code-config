@@ -1,5 +1,5 @@
 ---
-- name: Debug EKS Nodegroup Description
+- name: Update AMI for EKS Cluster
   hosts: localhost
   gather_facts: False
   vars:
@@ -19,30 +19,17 @@
       set_fact:
         new_ami_id: "{{ ami_description.stdout }}"
 
-    - name: Get the current launch template version
-      command: >
-        aws eks describe-nodegroup --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ nodegroup_name }}
-      register: nodegroup_description
-      changed_when: False
-
-    - name: Print nodegroup description
-      debug:
-        msg: "{{ nodegroup_description.stdout }}"
-
-    - name: Extract launch template ID and version
+    - name: Get the Auto Scaling Group name
       set_fact:
-        launch_template_id: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.id }}"
-        launch_template_version: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.version }}"
+        asg_name: "eks-private-nodes-70c4d155-2565-d715-61e6-5aac6134020b"
 
-    - name: Create a new launch template version with the new AMI
+    - name: Create a new launch configuration with the new AMI
       command: >
-        aws ec2 create-launch-template-version --region {{ region }} --launch-template-id {{ launch_template_id }} --version-description "Updated AMI" --launch-template-data "{\"imageId\":\"{{ new_ami_id }}\"}"
-      register: new_launch_template_version
+        aws autoscaling create-launch-configuration --launch-configuration-name {{ asg_name }}-new --image-id {{ new_ami_id }} --instance-type t3.large
+      register: new_launch_configuration
 
-    - name: Extract the new launch template version number
-      set_fact:
-        new_version_number: "{{ (new_launch_template_version.stdout | from_json).launchTemplateVersion.versionNumber }}"
-
-    - name: Update the EKS node group to use the new launch template version
+    - name: Update the Auto Scaling Group to use the new launch configuration
       command: >
-        aws eks update-nodegroup-version --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup --launch-template version={{ new_version_number }} 
+        aws autoscaling update-auto-scaling-group --auto-scaling-group-name {{ asg_name }} --launch-configuration-name {{ asg_name }}-new
+
+    - name: Optionally, you can delete the old launch configuration here
