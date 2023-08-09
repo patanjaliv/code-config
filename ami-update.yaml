@@ -16,7 +16,7 @@
 
     - name: Extract the AMI ID
       set_fact:
-        new_ami_id: "{{ ami_description.stdout | from_json | json_query('Parameter.Value') }}"
+        new_ami_id: "{{ (ami_description.stdout | from_json)['Parameter']['Value'] }}"
 
     - name: Get the current launch template version
       command: >
