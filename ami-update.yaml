@@ -8,10 +8,6 @@
     profile: 'default' # replace with your AWS CLI profile name
 
   tasks:
-  - name: Install necessary dependencies
-    pip:
-      name: ['boto3', 'botocore']
-
   - name: Get latest AMI ID
     shell: >
       aws --region {{ region }} --profile {{ profile }} ec2 describe-images --owners amazon --filters 'Name=name,Values=amzn2-ami-hvm-2.0.????????-x86_64-gp2' 'Name=state,Values=available' --query 'sort_by(Images, &CreationDate)[-1].[ImageId]' --output text
@@ -37,4 +33,3 @@
   - name: Set desired capacity of Auto Scaling group back to original capacity to remove old instances
     shell: >
       aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 1
-
