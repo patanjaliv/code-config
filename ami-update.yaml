@@ -24,7 +24,7 @@
 
   - name: Set desired capacity of Auto Scaling group to double the current capacity to start the replacement of instances
     shell: >
-      aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 2
+      aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 3
 
   - name: Wait for new instances to be ready
     pause:
@@ -32,4 +32,4 @@
 
   - name: Set desired capacity of Auto Scaling group back to original capacity to remove old instances
     shell: >
-      aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 1
+      aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 2
