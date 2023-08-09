@@ -1,35 +1,43 @@
 ---
-- hosts: localhost
+- name: Update AMI for EKS Cluster
+  hosts: localhost
   gather_facts: False
   vars:
-    region: 'us-east-1' # replace with your region
-    cluster_name: 'poojit' # replace with your cluster name
-    nodegroup_name: 'private-nodes' # replace with your nodegroup name
-    profile: 'default' # replace with your AWS CLI profile name
+    region: 'us-east-1' # Your AWS region
+    cluster_name: 'poojit' # Your EKS cluster name
+    kubernetes_version: '1.27' # Your Kubernetes version
 
   tasks:
-  - name: Get latest AMI ID
-    shell: >
-      aws --region {{ region }} --profile {{ profile }} ec2 describe-images --owners amazon --filters 'Name=name,Values=amzn2-ami-hvm-2.0.????????-x86_64-gp2' 'Name=state,Values=available' --query 'sort_by(Images, &CreationDate)[-1].[ImageId]' --output text
-    register: ami_id
+    - name: Get the latest EKS-optimized AMI ID
+      command: >
+        aws ssm get-parameters --region {{ region }} --names /aws/service/eks/optimized-ami/{{ kubernetes_version }}/amazon-linux-2/recommended/image_id
+      register: ami_description
+      changed_when: False
 
-  - name: Get Auto Scaling group name
-    shell: >
-      aws --region {{ region }} --profile {{ profile }} eks describe-nodegroup --cluster-name {{ cluster_name }} --nodegroup-name {{ nodegroup_name }} --query 'nodegroup.resources.autoScalingGroups[0].name' --output text
-    register: asg_name
+    - name: Extract the AMI ID
+      set_fact:
+        new_ami_id: "{{ (ami_description.stdout | from_json).Parameters[0].Value }}"
 
-  - name: Update Auto Scaling group with new AMI ID
-    shell: >
-      aws --region {{ region }} --profile {{ profile }} autoscaling update-auto-scaling-group --auto-scaling-group-name {{ asg_name.stdout }} --launch-configuration-name {{ ami_id.stdout }}
+    - name: Get the current launch template version
+      command: >
+        aws eks describe-nodegroup --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup
+      register: nodegroup_description
+      changed_when: False
 
-  - name: Set desired capacity of Auto Scaling group to double the current capacity to start the replacement of instances
-    shell: >
-      aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 3
+    - name: Extract launch template ID and version
+      set_fact:
+        launch_template_id: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.id }}"
+        launch_template_version: "{{ (nodegroup_description.stdout | from_json).nodegroup.launchTemplate.version }}"
 
-  - name: Wait for new instances to be ready
-    pause:
-      minutes: 10
+    - name: Create a new launch template version with the new AMI
+      command: >
+        aws ec2 create-launch-template-version --region {{ region }} --launch-template-id {{ launch_template_id }} --version-description "Updated AMI" --launch-template-data "{\"imageId\":\"{{ new_ami_id }}\"}"
+      register: new_launch_template_version
 
-  - name: Set desired capacity of Auto Scaling group back to original capacity to remove old instances
-    shell: >
-      aws --region {{ region }} --profile {{ profile }} autoscaling set-desired-capacity --auto-scaling-group-name {{ asg_name.stdout }} --desired-capacity 2
+    - name: Extract the new launch template version number
+      set_fact:
+        new_version_number: "{{ (new_launch_template_version.stdout | from_json).launchTemplateVersion.versionNumber }}"
+
+    - name: Update the EKS node group to use the new launch template version
+      command: >
+        aws eks update-nodegroup-version --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup --launch-template version={{ new_version_number }}
