@@ -40,4 +40,4 @@
 
     - name: Update the EKS node group to use the new launch template version
       command: >
-        aws eks update-nodegroup-version --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup --launch-template version={{ new_version_number }}
+        aws eks update-nodegroup-version --region {{ region }} --cluster-name {{ cluster_name }} --nodegroup-name {{ cluster_name }}-nodegroup --launch-template version={{ new_version_number }} 
