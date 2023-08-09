@@ -1,4 +1,4 @@
----
+--
 - name: Update AMI for EKS Cluster
   hosts: localhost
   gather_facts: False
@@ -10,13 +10,13 @@
   tasks:
     - name: Get the latest EKS-optimized AMI ID
       command: >
-        aws ssm get-parameter --region {{ region }} --name /aws/service/eks/optimized-ami/{{ kubernetes_version }}/amazon-linux-2/recommended/image_id
+        aws ssm get-parameter --region {{ region }} --name /aws/service/eks/optimized-ami/{{ kubernetes_version }}/amazon-linux-2/recommended/image_id --query 'Parameter.Value' --output text
       register: ami_description
       changed_when: False
 
     - name: Extract the AMI ID
       set_fact:
-        new_ami_id: "{{ (ami_description.stdout | from_json)['Parameter']['Value'] }}"
+        new_ami_id: "{{ ami_description.stdout }}"
 
     - name: Get the current launch template version
       command: >
